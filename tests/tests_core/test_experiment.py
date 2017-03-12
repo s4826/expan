@@ -1,5 +1,6 @@
 import unittest
 import warnings
+import re
 
 import numpy as np
 import pandas as pd
@@ -371,7 +372,9 @@ class ExperimentClassTestCases(ExperimentTestCase):
 
 		self.assertTrue(self.data.baseline_variant == 'B')
 
-		result = self.data.fixed_horizon_delta(kpi_subset=
+		res = self.__mock_results_object(kpi_subset=
+								 [m for m in self.data.kpi_names if 'normal' in m])
+		result = self.data.fixed_horizon_delta(res, kpi_subset=
 								 [m for m in self.data.kpi_names if 'normal' in m])
 
 		# check uplift
@@ -528,7 +531,9 @@ class ExperimentClassTestCases(ExperimentTestCase):
 
 		self.assertTrue(self.data.baseline_variant == 'B')
 
-		result = self.data.fixed_horizon_delta(kpi_subset=['derived'], 
+		res = self.__mock_results_object(kpi_subset=['derived'],
+			derived_kpis=[{'name':'derived','formula':'normal_same/normal_shifted'}])
+		result = self.data.fixed_horizon_delta(res, kpi_subset=['derived'], 
 			derived_kpis=[{'name':'derived','formula':'normal_same/normal_shifted'}])
 
 		# check uplift
@@ -562,7 +567,10 @@ class ExperimentClassTestCases(ExperimentTestCase):
 
 		self.assertTrue(self.data.baseline_variant == 'B')
 
-		result = self.data.fixed_horizon_delta(kpi_subset=['derived'], 
+		res = self.__mock_results_object(kpi_subset=['derived'],
+			derived_kpis=[{'name':'derived','formula':'normal_same/normal_shifted'}],
+			weighted_kpis=['derived'])
+		result = self.data.fixed_horizon_delta(res, kpi_subset=['derived'], 
 			derived_kpis=[{'name':'derived','formula':'normal_same/normal_shifted'}],
 			weighted_kpis=['derived'])
 
@@ -587,16 +595,45 @@ class ExperimentClassTestCases(ExperimentTestCase):
 		np.testing.assert_equal(True, all(item in result.metadata.items()
 		                                for item in self.testmetadata.items()))
 
+
 	def test_unequal_variance_warning_in_results(self):
 		"""
 		Check if the unequal variance warning message is persisted to the Results structure
     	"""
-		result = self.data.fixed_horizon_delta(kpi_subset=['normal_unequal_variance'],
+                res = self.__mock_results_object(kpi_subset=['normal_unequal_variance'],
+    							 variant_subset=['A'])
+		result = self.data.fixed_horizon_delta(res, kpi_subset=['normal_unequal_variance'],
 								 variant_subset=['A'])
 		w = result.metadata['warnings']['Experiment.delta']
 		self.assertTrue(isinstance(w, UserWarning))
 		self.assertTrue(w.args[0] == 'Sample variances differ too much to assume that population variances are equal.')
 
+
+	def __mock_results_object(self, kpi_subset=None, derived_kpis=None, **kwargs):
+
+		res = Results(None, metadata=self.data.metadata)
+		res.metadata['reference_kpi'] = {}
+		if 'weighted_kpis' in kwargs:
+			res.metadata['weighted_kpis'] = kwargs['weighted_kpis']
+
+		pattern = '([a-zA-Z][0-9a-zA-Z_]*)'
+		# determine the complete KPI name list
+		kpis_to_analyse = self.data.kpi_names.copy()
+		if derived_kpis is not None:
+			for dk in derived_kpis:
+				kpis_to_analyse.update([dk['name']])
+				# assuming the columns in the formula can all be cast into float
+				# and create the derived KPI as an additional column
+				self.data.kpis.loc[:,dk['name']] = eval(re.sub(pattern, r'self.data.kpis.\1.astype(float)', dk['formula']))
+				# store the reference metric name to be used in the weighting
+				# TODO: only works for ratios
+				res.metadata['reference_kpi'][dk['name']] = re.sub(pattern+'/', '', dk['formula'])
+
+		if kpi_subset is not None:
+			kpis_to_analyse.intersection_update(kpi_subset)
+
+		res.metadata['kpis_to_analyse'] = kpis_to_analyse
+		return res
 
 if __name__ == '__main__':
 	unittest.main()
