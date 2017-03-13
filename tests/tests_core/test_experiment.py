@@ -609,7 +609,9 @@ class ExperimentClassTestCases(ExperimentTestCase):
 
 
 	def __mock_results_object(self, kpi_subset=None, derived_kpis=None, **kwargs):
-
+		"""
+		Create a results object for any tests involving fixed_horizon_delta()
+		"""
 		res = Results(None, metadata=self.data.metadata)
 		res.metadata['reference_kpi'] = {}
 		if 'weighted_kpis' in kwargs:
