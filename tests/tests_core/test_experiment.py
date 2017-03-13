@@ -595,12 +595,11 @@ class ExperimentClassTestCases(ExperimentTestCase):
 		np.testing.assert_equal(True, all(item in result.metadata.items()
 		                                for item in self.testmetadata.items()))
 
-
 	def test_unequal_variance_warning_in_results(self):
 		"""
 		Check if the unequal variance warning message is persisted to the Results structure
     	"""
-                res = self.__mock_results_object(kpi_subset=['normal_unequal_variance'],
+        res = self.__mock_results_object(kpi_subset=['normal_unequal_variance'],
     							 variant_subset=['A'])
 		result = self.data.fixed_horizon_delta(res, kpi_subset=['normal_unequal_variance'],
 								 variant_subset=['A'])
